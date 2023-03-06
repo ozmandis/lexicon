@@ -1,11 +1,11 @@
 #![cfg(test)]
 
-use crate::{non_finite_automaton::non_finite_automaton_from, recognizer::Recognizer};
+use crate::{automaton, Recognizer};
 
 #[test]
 fn t0() {
-    let r = Recognizer::satisfy(|c| c.is_ascii_alphabetic())
-        .and(Recognizer::satisfy(|c| c.is_ascii_digit()).max())
-        .max();
-    println!("{:?}", non_finite_automaton_from(&r));
+    let r0 = Recognizer::satisfy(|_| true);
+    let r1 = r0.clone().and(r0);
+    let v = vec![r1.clone(); 4];
+    println!("{:?}", automaton::non_finite_automaton_from(v));
 }

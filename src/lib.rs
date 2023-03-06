@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 
+mod automaton;
 mod manifest;
-mod non_finite_automaton;
 mod recognizer;
 mod test;
+
+pub use recognizer::*;

@@ -1,13 +1,15 @@
 use std::rc::Rc;
 
-pub enum Inner {
+#[derive(Clone)]
+pub(crate) enum Inner {
     Satisfy(Rc<dyn Fn(u8) -> bool>),
     Max(Box<Self>),
     And(Box<Self>, Box<Self>),
     Or(Box<Self>, Box<Self>),
 }
 
-pub struct Recognizer(pub Inner);
+#[derive(Clone)]
+pub struct Recognizer(pub(crate) Inner);
 
 impl Recognizer {
     pub fn satisfy_from(test: Rc<dyn Fn(u8) -> bool>) -> Self {

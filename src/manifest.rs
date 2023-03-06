@@ -1,34 +1,18 @@
 use crate::recognizer;
 use std::{collections::BTreeSet, rc::Rc};
 
-pub struct Terminal {
+pub(crate) struct Terminal {
     pub satisfy: Rc<dyn Fn(u8) -> bool>,
     pub follow: BTreeSet<usize>,
 }
 
-impl Terminal {
-    pub fn new(satisfy: Rc<dyn Fn(u8) -> bool>, follow: BTreeSet<usize>) -> Self {
-        Terminal { satisfy, follow }
-    }
-}
-
-pub struct Manifest {
+pub(crate) struct Manifest {
     pub is_nullable: bool,
     pub first: BTreeSet<usize>,
     pub last: BTreeSet<usize>,
 }
 
-impl Manifest {
-    pub fn new(is_nullable: bool, first: BTreeSet<usize>, last: BTreeSet<usize>) -> Self {
-        Manifest {
-            is_nullable,
-            first,
-            last,
-        }
-    }
-}
-
-pub fn compute_manifest(
+pub(crate) fn compute_manifest(
     recognizer: &recognizer::Inner,
     position: &mut usize,
     terminals: &mut Vec<Terminal>,
@@ -39,9 +23,16 @@ pub fn compute_manifest(
             let local = *position;
             *position += 1;
             // Push new corresponding terminal
-            terminals.push(Terminal::new(test.clone(), BTreeSet::new()));
+            terminals.push(Terminal {
+                satisfy: test.clone(),
+                follow: BTreeSet::new(),
+            });
             // Result
-            Manifest::new(false, BTreeSet::from([local]), BTreeSet::from([local]))
+            Manifest {
+                is_nullable: false,
+                first: BTreeSet::from([local]),
+                last: BTreeSet::from([local]),
+            }
         }
         recognizer::Inner::Max(child) => {
             // Compute manifest of child
@@ -51,7 +42,11 @@ pub fn compute_manifest(
                 terminals[position].follow.extend(child.first.clone())
             }
             // Result
-            Manifest::new(true, child.first, child.last)
+            Manifest {
+                is_nullable: true,
+                first: child.first,
+                last: child.last,
+            }
         }
         recognizer::Inner::And(left, right) => {
             // Compute manifest of children
@@ -72,7 +67,11 @@ pub fn compute_manifest(
                 last.extend(left.last)
             }
             // Result
-            Manifest::new(left.is_nullable && right.is_nullable, first, last)
+            Manifest {
+                is_nullable: left.is_nullable && right.is_nullable,
+                first,
+                last,
+            }
         }
         recognizer::Inner::Or(left, right) => {
             // Compute manifest of children
@@ -85,7 +84,11 @@ pub fn compute_manifest(
             let mut last = left.last;
             last.extend(right.last);
             // Result
-            Manifest::new(left.is_nullable || right.is_nullable, first, last)
+            Manifest {
+                is_nullable: left.is_nullable || right.is_nullable,
+                first,
+                last,
+            }
         }
     }
 }
