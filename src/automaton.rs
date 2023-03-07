@@ -1,23 +1,26 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{manifest::*, Recognizer};
+use crate::{manifest::*, recognizer};
 
 type NonFiniteAutomaton = BTreeMap<BTreeSet<usize>, Vec<BTreeSet<usize>>>;
 
-pub fn non_finite_automaton_from(recognizers: Vec<Recognizer>) -> NonFiniteAutomaton {
+fn non_finite_automaton_from(
+    recognizers: &Vec<recognizer::Inner>,
+) -> (NonFiniteAutomaton, Vec<Manifest>) {
     let position = &mut 0;
     let terminals = &mut Vec::new();
     let manifests: Vec<Manifest> = recognizers
         .iter()
-        .map(|r| compute_manifest(&r.0, position, terminals))
+        .map(|r| compute_manifest(&r, position, terminals))
         .collect();
-    let first = manifests.iter().fold(BTreeSet::new(), |mut acc, x| {
-        acc.extend(x.first.clone());
-        acc
-    });
+    let mut first = BTreeSet::new();
+    for manifest in manifests.iter() {
+        first.extend(manifest.first.clone());
+    }
+
     let mut automaton = BTreeMap::new();
     non_finite_automaton_init(&mut automaton, terminals, first);
-    automaton
+    (automaton, manifests)
 }
 
 fn non_finite_automaton_init(
@@ -34,9 +37,32 @@ fn non_finite_automaton_init(
                 }
             }
         }
-        for follow in &table {
-            non_finite_automaton_init(automaton, terminals, follow.clone());
+        automaton.insert(state, table.clone());
+        for follow in table {
+            non_finite_automaton_init(automaton, terminals, follow);
         }
-        automaton.insert(state, table);
     }
+}
+
+pub(crate) fn deterministic_finite_automata(
+    recognizers: &Vec<recognizer::Inner>,
+) -> Vec<Vec<Option<usize>>> {
+    let (nfa, manifests) = non_finite_automaton_from(recognizers);
+    let mut correspondance = BTreeMap::new();
+    for (i, (k, _)) in nfa.iter().enumerate() {
+        correspondance.insert(k, i);
+    }
+    let mut dfa = Vec::new();
+    for (_, v) in nfa.iter() {
+        let mut table = Vec::new();
+        for i in v {
+            table.push(if i.is_empty() {
+                None
+            } else {
+                Some(correspondance[i])
+            })
+        }
+        dfa.push(table)
+    }
+    dfa
 }

@@ -8,6 +8,7 @@ pub(crate) enum Inner {
     Or(Box<Self>, Box<Self>),
 }
 
+// -- Public Interface -----------------------------------------------------------------------------
 #[derive(Clone)]
 pub struct Recognizer(pub(crate) Inner);
 
