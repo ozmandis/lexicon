@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ops::Range};
 
 use crate::expression::*;
 
@@ -6,11 +6,37 @@ const STATE_SIZE: usize = u8::MAX as usize + 1;
 
 #[derive(Debug)]
 pub struct Recognizer {
+    first_state: usize,
     nullable: Option<usize>,
     dfa: Vec<[Action; STATE_SIZE]>,
 }
 
 impl Recognizer {
+    pub fn find(&self, input: &[u8]) -> Option<(usize, Range<usize>)> {
+        let mut res = if let Some(nullable) = self.nullable {
+            Some((nullable, 0..0))
+        } else {
+            None
+        };
+        let mut it = input.iter().enumerate();
+        let mut state = self.first_state;
+        while let Some((i, &c)) = it.next() {
+            match self.dfa[state][c as usize] {
+                Action::Failure => break,
+                Action::Accept(r) => {
+                    res = Some((r, 0..i + 1));
+                    break;
+                }
+                Action::AcceptAndGoto(r, n) => {
+                    res = Some((r, 0..i + 1));
+                    state = n;
+                }
+                Action::GoTo(n) => state = n,
+            }
+        }
+        res
+    }
+
     pub fn new(mut expressions: Vec<Expression>) -> Self {
         //
         let root = expressions
@@ -26,7 +52,12 @@ impl Recognizer {
         }
         //
         let mut nfa = BTreeMap::new();
-        nfa_init(&mut nfa, &root.terminals, &expressions, root.first_set);
+        nfa_init(
+            &mut nfa,
+            &root.terminals,
+            &expressions,
+            root.first_set.clone(),
+        );
         //
         let mut correspondance = BTreeMap::new();
         for (i, (k, _)) in nfa.iter().enumerate() {
@@ -52,7 +83,11 @@ impl Recognizer {
             .enumerate()
             .find(|(_, e)| e.is_nullable)
             .map(|(i, _)| i);
-        Recognizer { nullable, dfa }
+        Recognizer {
+            first_state: correspondance[&root.first_set],
+            nullable,
+            dfa,
+        }
     }
 }
 
@@ -74,10 +109,10 @@ fn nfa_init(
         //
         let mut table = vec![(PositionSet::new(), PositionSet::new()); STATE_SIZE];
         for &position in state.iter() {
-            let last = last(position, expressions);
+            let accept = find_accept(position, expressions);
             for i in 0..STATE_SIZE {
                 if (terminals[position].satisfy)(i as u8) {
-                    if let Some(j) = last {
+                    if let Some(j) = accept {
                         table[i].0.insert(j);
                     }
                     table[i].1.extend(terminals[position].follow_set.clone());
@@ -93,7 +128,7 @@ fn nfa_init(
     }
 }
 
-fn last(position: usize, expressions: &Vec<Expression>) -> Option<usize> {
+fn find_accept(position: usize, expressions: &Vec<Expression>) -> Option<usize> {
     for (i, expression) in expressions.into_iter().enumerate() {
         if expression.last_set.contains(&position) {
             return Some(i);
