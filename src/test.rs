@@ -2,12 +2,14 @@
 use crate::{expression::*, recognizer::*};
 
 #[test]
-fn t0() {
-    let e0 = Expression::satisfy(|c| c.is_ascii_alphabetic()).star();
-    let e1 = Expression::satisfy(|c| c.is_ascii_digit()).star();
-    let input = "1223asfsdfsd2dasd12331";
-    let res = Recognizer::new(vec![e0, e1])
-        .find(input.as_bytes())
-        .unwrap();
-    println!("{:?}", &input[res.1]);
+fn benchmark() {
+    let input = vec!['a' as u8; 1_000_000_000];
+    let start = std::time::Instant::now();
+    let f = Recognizer::new(vec![
+        Expression::satisfy(|c| c == 'a' as u8).star(),
+        Expression::satisfy(|c| c == 'b' as u8),
+    ])
+    .find(input.as_slice())
+    .unwrap();
+    println!("{:?}\n{:?}", f, start.elapsed());
 }
